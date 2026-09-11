@@ -1,24 +1,21 @@
 #import <substrate.h>
+#import <dlfcn.h>
+#import <CoreFoundation/CoreFoundation.h>
 
-//#define FAKE_CHINA
+typedef CFTypeRef (*WiFiCopyPropertyFn)(void *, CFStringRef);
+static WiFiCopyPropertyFn orig_WiFiDeviceClientCopyProperty = NULL;
 
-static CFTypeRef (*orig_WiFiDeviceClientCopyProperty)(void *cl,CFStringRef key);
-CFTypeRef replaced_WiFiDeviceClientCopyProperty(void *cl,CFStringRef key) {
-	CFTypeRef retval = NULL;
-	if (CFEqual(key, CFSTR("WAPIEnabled")))  {
-#ifdef FAKE_CHINA
-        	retval = CFSTR("1");
-#else
-        	retval = NULL;
-#endif
-	} else {
-		retval = orig_WiFiDeviceClientCopyProperty( cl,key );
-	}
-	return retval;
+static CFTypeRef replaced_WiFiDeviceClientCopyProperty(void *client, CFStringRef key) {
+    if (key && CFEqual(key, CFSTR("WAPIEnabled"))) {
+        return NULL;
+    }
+    return orig_WiFiDeviceClientCopyProperty ? orig_WiFiDeviceClientCopyProperty(client, key) : NULL;
 }
 
-
-__attribute__((constructor)) static void wapiinit() {
-	void * WiFiDeviceClientCopyProperty=dlsym(RTLD_DEFAULT, "WiFiDeviceClientCopyProperty");
-	MSHookFunction((void *)WiFiDeviceClientCopyProperty, (void *)replaced_WiFiDeviceClientCopyProperty, (void **)&orig_WiFiDeviceClientCopyProperty);
+__attribute__((constructor)) static void WAPIHook17Init(void) {
+    void *sym = dlsym(RTLD_DEFAULT, "WiFiDeviceClientCopyProperty");
+    if (sym) {
+        MSHookFunction(sym, (void *)&replaced_WiFiDeviceClientCopyProperty,
+                       (void **)&orig_WiFiDeviceClientCopyProperty);
+    }
 }
