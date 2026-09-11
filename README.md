@@ -33,14 +33,6 @@ Globalize17 is available from the TTLongDL Repo:
 
 Add the repository to your package manager and install **Globalize17**.
 
-## Build
-
-Requires a current Theos installation and an iOS 17 SDK.
-
-```sh
-export THEOS=~/theos
-make clean package FINALPACKAGE=1
-
 ## Disclaimer
 
 This is an unofficial community port and is not supported by the original
@@ -48,3 +40,11 @@ developer.
 
 This project is maintained as a personal hobby project and shared as-is.
 Compatibility, future updates, and continued support are not guaranteed.
+
+## Build
+
+Requires a current Theos installation and an iOS 17 SDK.
+
+```sh
+export THEOS=~/theos
+make clean package FINALPACKAGE=1
