@@ -1,0 +1,37 @@
+name: Build Globalize17 RootHide DEB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install RootHide Theos
+        run: |
+          set -euo pipefail
+          brew install dpkg ldid
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+      - name: Build RootHide package
+        run: |
+          set -euo pipefail
+          test -f "$THEOS/makefiles/common.mk"
+          make clean
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+          find packages -name '*iphoneos-arm64e.deb' -type f -print
+          test "$(find packages -name '*iphoneos-arm64e.deb' -type f | wc -l | tr -d ' ')" -ge 1
+          for pkg in packages/*iphoneos-arm64e.deb; do
+            dpkg-deb -f "$pkg" Package Version Architecture
+            dpkg-deb -f "$pkg" Architecture | grep -qx iphoneos-arm64e
+          done
+      - name: Upload RootHide DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Globalize17-RootHide
+          path: packages/*iphoneos-arm64e.deb
+          if-no-files-found: error
