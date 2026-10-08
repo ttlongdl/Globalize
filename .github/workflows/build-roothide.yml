@@ -31,6 +31,58 @@ jobs:
             dpkg-deb -f "$pkg" Package Version Architecture
             dpkg-deb -f "$pkg" Architecture | grep -qx iphoneos-arm64e
           done
+      - name: Repack with isolated RootHide metadata
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          built=(packages/*iphoneos-arm64e.deb)
+          test "${#built[@]}" -eq 1
+          mkdir -p "$RUNNER_TEMP/globalize-roothide"
+          dpkg-deb -R "${built[0]}" "$RUNNER_TEMP/globalize-roothide"
+          cp layout_roothide/DEBIAN/postinst "$RUNNER_TEMP/globalize-roothide/DEBIAN/postinst"
+          cp layout_roothide/DEBIAN/prerm "$RUNNER_TEMP/globalize-roothide/DEBIAN/prerm"
+          chmod 755 "$RUNNER_TEMP/globalize-roothide/DEBIAN/postinst" "$RUNNER_TEMP/globalize-roothide/DEBIAN/prerm"
+          # Preserve Theos-generated dependencies and other control fields.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path(__import__('os').environ['RUNNER_TEMP']) / 'globalize-roothide/DEBIAN/control'
+          lines = p.read_text().splitlines()
+          replacements = {
+              'Package': 'com.ttlongdl.globalize17.roothide',
+              'Name': 'Globalize17 (RootHide)',
+              'Version': '0.4.0-2+roothide1',
+              'Architecture': 'iphoneos-arm64e',
+              'Description': 'Unofficial RootHide iOS 17 port of Globalize by parrotgeek1.',
+          }
+          found = set()
+          output = []
+          for line in lines:
+              key = line.split(':', 1)[0] if ':' in line else ''
+              if key in replacements:
+                  output.append(f'{key}: {replacements[key]}')
+                  found.add(key)
+              else:
+                  output.append(line)
+          for key, value in replacements.items():
+              if key not in found:
+                  output.append(f'{key}: {value}')
+          p.write_text('\\n'.join(output) + '\\n')
+          PY
+          rm -f packages/*iphoneos-arm64e.deb
+          dpkg-deb --build "$RUNNER_TEMP/globalize-roothide" "packages/com.ttlongdl.globalize17.roothide_0.4.0-2+roothide1_iphoneos-arm64e.deb"
+      - name: Verify RootHide package contents
+        run: |
+          set -euo pipefail
+          pkg=(packages/*iphoneos-arm64e.deb)
+          test "${#pkg[@]}" -eq 1
+          test "$(dpkg-deb -f "${pkg[0]}" Package)" = "com.ttlongdl.globalize17.roothide"
+          test "$(dpkg-deb -f "${pkg[0]}" Architecture)" = "iphoneos-arm64e"
+          test "$(dpkg-deb -f "${pkg[0]}" Version)" = "0.4.0-2+roothide1"
+          dpkg-deb --ctrl-tarfile "${pkg[0]}" | tar -xOf - ./postinst | grep -q '/rootfs/var/mobile'
+          dpkg-deb --ctrl-tarfile "${pkg[0]}" | tar -xOf - ./prerm | grep -q '/rootfs/var/mobile'
+          dpkg-deb --contents "${pkg[0]}" | grep -q 'Globalize17.dylib'
+          dpkg-deb --contents "${pkg[0]}" | grep -q 'WAPIHook17.dylib'
+          dpkg-deb -f "${pkg[0]}" Package Version Architecture Depends
       - name: Upload RootHide DEB
         uses: actions/upload-artifact@v4
         with:
