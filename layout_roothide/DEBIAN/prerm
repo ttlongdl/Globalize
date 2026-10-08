@@ -1,0 +1,5 @@
+#!/bin/sh
+# RootHide bootstrap paths are randomized. /rootfs targets the original iOS filesystem.
+rm -f /rootfs/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist 2>/dev/null || true
+rm -f /rootfs/var/mobile/Library/Caches/com.apple.MobileGestalt.plist 2>/dev/null || true
+exit 0
